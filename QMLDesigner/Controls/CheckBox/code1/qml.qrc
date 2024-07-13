@@ -1,0 +1,8 @@
+<RCC>
+    <qresource prefix="/">
+        <file>main.qml</file>
+        <file>UnChecked.png</file>
+        <file>Checked.png</file>
+        <file>PartiallyChecked.png</file>
+    </qresource>
+</RCC>
