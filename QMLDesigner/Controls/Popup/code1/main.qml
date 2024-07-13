@@ -8,7 +8,6 @@ Window {
     visible: true
     title: qsTr("Hello World")
 
-
     Button {
         text: "发消息"
         onClicked: {
@@ -24,7 +23,7 @@ Window {
         x: parent.width / 2 - width / 2
         y: parent.height / 5
         // 弹窗模态
-//        modal: true
+        modal: false
         // 触发弹窗关闭方式
         closePolicy: Popup.NoAutoClose
         // 弹窗背景视图
