@@ -162,23 +162,13 @@ Window {
             }
             // 日期代理
             dayDelegate: Rectangle {
+                color: styleData.selected? "black": "white"
                 Label {
                     id: label
                     anchors.centerIn: parent
                     text: styleData.date.getDate()
                     font.pointSize: 13
-                }
-                MouseArea {
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    onEntered: {
-                        parent.color = "black"
-                        label.color = "white"
-                    }
-                    onExited: {
-                        label.color = "black"
-                        parent.color = "white"
-                    }
+                    color: styleData.selected? "white": "black"
                 }
             }
         }
