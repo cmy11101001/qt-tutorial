@@ -172,5 +172,9 @@ Window {
                 }
             }
         }
+        //!
+        onClicked: (date)=> {
+                       console.log(date)
+                   }
     }
 }
