@@ -1,0 +1,13 @@
+QWidget{
+    font: 700 12pt "Microsoft YaHei UI";
+    background-color: rgb(238, 255, 237);
+}
+
+QStatusBar#statusbar{
+    background: #007acc;
+}
+
+QStatusBar#statusbar::item{
+    border: 1px solid red;
+    border-radius: 3px;
+}
