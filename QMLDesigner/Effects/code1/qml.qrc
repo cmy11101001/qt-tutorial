@@ -1,0 +1,23 @@
+<RCC>
+    <qresource prefix="/">
+        <file>main.qml</file>
+        <file>shaders/blur.frag</file>
+        <file>shaders/colorize.frag</file>
+        <file>shaders/genie.vert</file>
+        <file>shaders/outline.frag</file>
+        <file>shaders/shadow.frag</file>
+        <file>shaders/wobble.frag</file>
+        <file>shaders/+hlsl/blur.frag</file>
+        <file>shaders/+hlsl/colorize.frag</file>
+        <file>shaders/+hlsl/genie.vert</file>
+        <file>shaders/+hlsl/outline.frag</file>
+        <file>shaders/+hlsl/shadow.frag</file>
+        <file>shaders/+hlsl/wobble.frag</file>
+        <file>shaders/+qsb/blur.frag</file>
+        <file>shaders/+qsb/colorize.frag</file>
+        <file>shaders/+qsb/genie.vert</file>
+        <file>shaders/+qsb/outline.frag</file>
+        <file>shaders/+qsb/shadow.frag</file>
+        <file>shaders/+qsb/wobble.frag</file>
+    </qresource>
+</RCC>
