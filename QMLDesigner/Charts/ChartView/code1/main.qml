@@ -7,7 +7,7 @@ Window {
     width: 640
     height: 480
     visible: true
-    title: qsTr("ChartView")
+    title: qsTr("放假当宅宅")
 
     ChartView {
         id: chartView
@@ -43,6 +43,8 @@ Window {
         property var seriesList: []
         // 曲线最大个数限制
         property int xNum: 100
+        // 显示帧率
+        property int frame: 30
         // 是否启用自适应
         property bool adaptive: true
         // 自适应x轴最小位置
@@ -53,6 +55,8 @@ Window {
         property real yMin: 0
         // 自适应y轴最大位置
         property real yMax: 0
+        // 滚动视图
+        property bool rollView: true
 
         // x坐标范围
         ValueAxis {
@@ -90,7 +94,27 @@ Window {
         Menu {
             id: rightClickMenu
             title: "右键菜单"
-            MenuItem {
+            delegate: MenuItem {
+                id: menuItem
+                background: Rectangle {
+                    implicitWidth: 200
+                    implicitHeight: 40
+                    opacity: 1
+                    color: menuItem.highlighted ? "gray" : "transparent"
+                }
+                contentItem: Text {
+                    leftPadding: menuItem.indicator.width
+                    rightPadding: menuItem.arrow.width
+                    text: menuItem.text
+                    font.pointSize: 15
+                    opacity: 1
+                    color: menuItem.highlighted ? "white" : "black"
+                    horizontalAlignment: Text.AlignLeft
+                    verticalAlignment: Text.AlignVCenter
+                    elide: Text.ElideRight
+                }
+            }
+            Action {
                 text: "适应窗口大小"
                 onTriggered: {
                     chartView.zoomReset()
@@ -101,28 +125,46 @@ Window {
                     chartView.zoomReset()
                 }
             }
-            MenuItem {
+            Action {
                 text: "滚轮缩放x轴"
                 onTriggered: {
                     chartView.xAxisSelect = true
                 }
             }
-            MenuItem {
+            Action {
                 text: "滚轮缩放y轴"
                 onTriggered: {
                     chartView.xAxisSelect = false
                 }
             }
-            MenuItem {
+            Action {
                 text: "十字光标"
                 onTriggered: {
                     chartView.crossShow = !chartView.crossShow
                 }
+                checkable: true
+                Component.onCompleted: {
+                    checked = chartView.crossShow
+                }
             }
-            MenuItem {
+            Action {
+                text: "滚动视图"
+                onTriggered: {
+                    chartView.rollView = !chartView.rollView
+                }
+                checkable: true
+                Component.onCompleted: {
+                    checked = chartView.rollView
+                }
+            }
+            Action {
                 text: "观测自适应"
                 onTriggered: {
                     chartView.adaptive = !chartView.adaptive
+                }
+                checkable: true
+                Component.onCompleted: {
+                    checked = chartView.adaptive
                 }
             }
         }
@@ -285,6 +327,31 @@ Window {
             }
         }
 
+        // 创建曲线
+        function createPlot(name) {
+            var series = chartView.createSeries(
+                        ChartView.SeriesTypeLine, name, xAxis, yAxis)
+            series.opacity = 0.5
+            seriesList.push(series)
+        }
+
+        // 删除曲线
+        function removePlot(name) {
+            for (var i=0; i<chartView.seriesList.length; i++) {
+                if (chartView.seriesList[i].name === name){
+                    chartView.removeSeries(chartView.seriesList[i])
+                    chartView.seriesList.splice(i, 1)
+                    break
+                }
+            }
+        }
+
+        // 清空曲线
+        function removeAllPlot() {
+            chartView.removeAllSeries()
+            chartView.seriesList.splice(0, chartView.seriesList.length);
+        }
+
         // 添加数据
         function appendData(name, value) {
             for (var i=0; i<chartView.seriesList.length; i++) {
@@ -296,6 +363,15 @@ Window {
                     // 超出最大个数限制, 删除第一个
                     if (chartView.seriesList[i].count > chartView.xNum) {
                         chartView.seriesList[i].remove(0)
+                        // 曲线所有数据x坐标前移, 但是会影响性能
+                        if (!chartView.rollView) {
+                            for (var j=0; j<chartView.seriesList[i].count; j++) {
+                                chartView.seriesList[i].replace(chartView.seriesList[i].at(j).x,
+                                                                chartView.seriesList[i].at(j).y,
+                                                                chartView.seriesList[i].at(j).x-1,
+                                                                chartView.seriesList[i].at(j).y)
+                            }
+                        }
                     }
                     var xStart = chartView.seriesList[i].at(0).x
                     // 自适应坐标更新, x最小位置是xStart, x最大位置是xEnd, y值是value
@@ -322,18 +398,12 @@ Window {
         // 组件加载完成
         Component.onCompleted: {
             // 演示
-            var series1 = chartView.createSeries(
-                        ChartView.SeriesTypeLine, "观测曲线1", xAxis, yAxis)
-            series1.opacity = 0.5
-            seriesList.push(series1)
-            var series2 = chartView.createSeries(
-                        ChartView.SeriesTypeLine, "观测曲线2", xAxis, yAxis)
-            series2.opacity = 0.5
-            seriesList.push(series2)
-            for (var i=0; i<11; i++) {
-                series1.append(i, (Math.random()-0.5)*10)
-                series2.append(i, (Math.random()-0.5)*10)
-            }
+            chartView.createPlot("曲线1")
+            chartView.createPlot("曲线2")
+            chartView.createPlot("曲线3")
+            chartView.createPlot("曲线4")
+            // 删除曲线
+            chartView.removePlot("曲线4")
         }
 
         // 演示
@@ -341,10 +411,11 @@ Window {
             id: timer
             running: true
             repeat: true
-            interval: 50
+            interval: Math.round(1000 / chartView.frame)
             onTriggered: {
-                chartView.appendData("观测曲线1", (Math.random()-0.5)*10)
-                chartView.appendData("观测曲线2", (Math.random()-0.5)*10)
+                chartView.appendData("曲线1", (Math.random()-0.5)*5 + 6.6)
+                chartView.appendData("曲线2", (Math.random()-0.5)*5 + 3.3)
+                chartView.appendData("曲线3", (Math.random()-0.5)*5)
             }
         }
     }
