@@ -42,7 +42,7 @@ Window {
         // 曲线列表
         property var seriesList: []
         // 曲线最大个数限制
-        property int xNum: 100
+        property int xNum: 50
         // 显示帧率
         property int frame: 30
         // 是否启用自适应
@@ -116,6 +116,30 @@ Window {
                     chartView.zoomReset()
                     xAxis.min = chartView.xMin
                     xAxis.max = chartView.xMax
+                    // 遍历所有曲线，拿到每组曲线y轴最新100组数据最小值跟最大值
+                    var yMin = 0
+                    var yMax = 0
+                    for (var i=0; i<chartView.seriesList.length; i++) {
+                        var num = chartView.seriesList[i].count>100?
+                                    100: chartView.seriesList[i].count
+                        var startCount = chartView.seriesList[i].count>num?
+                                    chartView.seriesList[i].count-num: 0
+                        for (var j=0; j<num; j++) {
+                            if (i==0 && j==0) {
+                                yMin = chartView.seriesList[i].at(startCount+j).y
+                                yMax = yMin+0.1
+                            } else {
+                                if (yMin > chartView.seriesList[i].at(startCount+j).y) {
+                                    yMin = chartView.seriesList[i].at(startCount+j).y
+                                } else if (yMax < chartView.seriesList[i].at(startCount+j).y) {
+                                    yMax = chartView.seriesList[i].at(startCount+j).y
+                                }
+                            }
+                        }
+                    }
+                    yAxis.min = yMin
+                    yAxis.max = yMax
+                    // 曲线适应视图大小
                     chartView.zoomReset()
                 }
             }
