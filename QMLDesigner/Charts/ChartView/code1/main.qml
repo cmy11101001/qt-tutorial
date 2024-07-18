@@ -4,8 +4,8 @@ import QtCharts 2.15
 import QtQuick.Controls 2.15
 
 Window {
-    width: 640
-    height: 480
+    width: 1080
+    height: 720
     visible: true
     title: qsTr("放假当宅宅")
 
@@ -51,10 +51,6 @@ Window {
         property real xMin: 0
         // 自适应x轴最大位置
         property real xMax: 0
-        // 自适应y轴最小位置
-        property real yMin: 0
-        // 自适应y轴最大位置
-        property real yMax: 0
         // 滚动视图
         property bool rollView: true
 
@@ -120,8 +116,6 @@ Window {
                     chartView.zoomReset()
                     xAxis.min = chartView.xMin
                     xAxis.max = chartView.xMax
-                    yAxis.min = chartView.yMin
-                    yAxis.max = chartView.yMax
                     chartView.zoomReset()
                 }
             }
@@ -382,14 +376,6 @@ Window {
                     if (xEnd > chartView.xMax) {
                         chartView.xMax = xEnd
                         if (adaptive) xAxis.max = xEnd
-                    }
-                    if (value < chartView.yMin) {
-                        chartView.yMin = value
-                        if (adaptive) yAxis.min = value
-                    }
-                    if (value > chartView.yMax) {
-                        chartView.yMax = value
-                        if (adaptive) yAxis.max = value
                     }
                 }
             }
