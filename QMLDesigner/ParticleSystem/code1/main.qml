@@ -74,6 +74,27 @@ Window {
             z: rectShade.z + 1
         }
 
+        // 粒子画笔
+        ItemParticle  {
+            id: itemParticle
+            system: particleSystem
+            // 粒子组
+            groups: "实例化"
+            // 粒子视图
+            delegate: Rectangle {
+                width: itemParticle.parent.width > itemParticle.parent.height?
+                           itemParticle.parent.height * 0.02:
+                           itemParticle.parent.width * 0.02
+                height: width
+                radius: height / 2
+                border.width: radius * 0.8
+                border.color: "white"
+                color: "transparent"
+            }
+            // 是否在生命周期结束时自动淡出
+            fade: true
+        }
+
         // 发射器
         Emitter {
             id: emitter
@@ -122,27 +143,6 @@ Window {
             system: particleSystem
             // 粒子进入控制范围就开始乱窜
             strength: 1000;
-        }
-
-        // 粒子画笔
-        ItemParticle  {
-            id: itemParticle
-            system: particleSystem
-            // 粒子组
-            groups: "实例化"
-            // 粒子视图
-            delegate: Rectangle {
-                width: itemParticle.parent.width > itemParticle.parent.height?
-                           itemParticle.parent.height * 0.02:
-                           itemParticle.parent.width * 0.02
-                height: width
-                radius: height / 2
-                border.width: radius * 0.8
-                border.color: "white"
-                color: "transparent"
-            }
-            // 是否在生命周期结束时自动淡出
-            fade: true
         }
 
         // 按钮遮罩
