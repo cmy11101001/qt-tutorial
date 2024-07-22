@@ -1,0 +1,8 @@
+<RCC>
+    <qresource prefix="/">
+        <file>main.qml</file>
+        <file>CmyDrag.qml</file>
+        <file>CmyDrop.qml</file>
+        <file>CmyLine.qml</file>
+    </qresource>
+</RCC>
