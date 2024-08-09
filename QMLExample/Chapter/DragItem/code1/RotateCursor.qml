@@ -14,7 +14,7 @@ Rectangle {
     anchors {
         top: parent.top
         horizontalCenter: parent.horizontalCenter
-        topMargin: -20
+        topMargin: -30
     }
     // 旋转视图到被控视图之间画一条线
     Rectangle {

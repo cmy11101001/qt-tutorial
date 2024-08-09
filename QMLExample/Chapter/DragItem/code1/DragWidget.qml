@@ -2,10 +2,9 @@ import QtQuick 2.12
 
 Item {
     id: root
-    x: 0
-    y: 0
-    width: parent.width
-    height: parent.height
+    anchors.centerIn: parent
+    width: parent.width + dragSizeItem.posRadius
+    height: parent.height + dragSizeItem.posRadius
     // 被控视图
     property var control: parent
     MouseArea {
@@ -31,6 +30,7 @@ Item {
 
     // 支持大小拖拽
     DragSizeItem {
+        id: dragSizeItem
         control: root.control
         anchors.fill: parent
         visible: control.focus

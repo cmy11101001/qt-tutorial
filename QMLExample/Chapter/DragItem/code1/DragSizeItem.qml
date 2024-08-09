@@ -28,6 +28,7 @@ Rectangle {
 
     // top
     Rectangle {
+        id: topDrag
         border.color: posborderColor
         border.width:  1
         color: posColor
@@ -43,6 +44,7 @@ Rectangle {
 
     // bottom
     Rectangle {
+        id: bottomDrag
         border.color: posborderColor
         border.width: 1
         color: posColor
@@ -58,6 +60,7 @@ Rectangle {
 
     // left
     Rectangle {
+        id: leftDrag
         border.color: posborderColor
         border.width:  1
         color: posColor
@@ -73,6 +76,7 @@ Rectangle {
 
     // right
     Rectangle {
+        id: rightDrag
         border.color: posborderColor
         border.width: 1
         color: posColor
@@ -88,6 +92,7 @@ Rectangle {
 
     // topleft
     Rectangle {
+        id: topleftDrag
         border.color: posborderColor
         border.width: 1
         color: posColor
@@ -103,6 +108,7 @@ Rectangle {
 
     // bottomleft
     Rectangle {
+        id: bottomleftDrag
         border.color: posborderColor
         border.width: 1
         color: posColor
@@ -118,6 +124,7 @@ Rectangle {
 
     // topright
     Rectangle {
+        id: toprightDrag
         border.color: posborderColor
         border.width: 1
         color: posColor
@@ -133,6 +140,7 @@ Rectangle {
 
     // bottomright
     Rectangle {
+        id: bottomrightDrag
         border.color: posborderColor
         border.width: 1
         color: posColor
@@ -149,6 +157,7 @@ Rectangle {
     // 左边拖动大小
     DragItem {
         id: leftdragsize
+        x: -width * 0.5
         y: root.border.width
         height: root.height - border.width * 2
         mouseStyle: Qt.SizeHorCursor
@@ -165,7 +174,7 @@ Rectangle {
     // 右边拖动大小
     DragItem {
         id: rightdragsize
-        x: parent.width - width
+        x: parent.width - width * 0.5
         y: root.border.width
         height: root.height - border.width * 2
         mouseStyle: Qt.SizeHorCursor
@@ -180,7 +189,9 @@ Rectangle {
     DragItem {
         id: topdragsize
         x: root.border.width
+        y: -height * 0.5
         width: root.width - border.width * 2
+        height: topDrag.height
         mouseStyle: Qt.SizeVerCursor
         onDragPos: (pos)=>{
             if (pos.y < root.control.height) {
@@ -196,8 +207,9 @@ Rectangle {
     DragItem {
         id: bottomdragsize
         x: root.border.width
-        y: parent.height - height
+        y: parent.height - height * 0.5
         width: root.width - border.width * 2
+        height: bottomDrag.height
         mouseStyle: Qt.SizeVerCursor
         onDragPos: (pos)=>{
             if (root.control.height + pos.y > 0) {
@@ -209,6 +221,10 @@ Rectangle {
     // 左上角拖动大小 - 左上角坐标为 0,0
     DragItem {
         id: lefttopdragsize
+        x: -width * 0.5
+        y: -height * 0.5
+        width: topleftDrag.width
+        height: topleftDrag.height
         mouseStyle: Qt.SizeFDiagCursor
         onDragPos: (pos)=>{
             if (pos.x < root.control.width) {
@@ -229,7 +245,10 @@ Rectangle {
     // 左下角拖动大小
     DragItem {
         id: leftbottomdragsize
-        y: parent.height - height
+        x: -width * 0.5
+        y: parent.height - height * 0.5
+        width: bottomleftDrag.width
+        height: bottomleftDrag.height
         mouseStyle: Qt.SizeBDiagCursor
         onDragPos: (pos)=>{
             if (pos.x < root.control.width) {
@@ -247,7 +266,10 @@ Rectangle {
     // 右上角拖动大小
     DragItem {
         id: righttopdragsize
-        x: parent.width - width
+        x: parent.width - width * 0.5
+        y: -height * 0.5
+        width: toprightDrag.width
+        height: toprightDrag.height
         mouseStyle: Qt.SizeBDiagCursor
         onDragPos: (pos)=>{
             if (pos.y < root.control.height) {
@@ -265,8 +287,10 @@ Rectangle {
     // 右下角拖动大小
     DragItem {
         id: rightbottomdragsize
-        x: parent.width - width
-        y: parent.height - height
+        x: parent.width - width * 0.5
+        y: parent.height - height * 0.5
+        width: bottomrightDrag.width
+        height: bottomrightDrag.height
         mouseStyle: Qt.SizeFDiagCursor
         onDragPos: (pos)=>{
             if (root.control.width + pos.x > 0) {
