@@ -44,7 +44,7 @@ ShaderEffect {
         attribute highp vec4 qt_Vertex;
         // 纹理坐标
         attribute highp vec2 qt_MultiTexCoord0;
-        // model-view-projection（模型-视图-投影）矩阵
+        //（模型-视图-投影）矩阵
         uniform highp mat4 qt_Matrix;
         // 共享纹理坐标, 传递给片段着色器
         varying highp vec2 qt_TexCoord0;
