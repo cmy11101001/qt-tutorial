@@ -1,0 +1,10 @@
+<RCC>
+    <qresource prefix="/">
+        <file>main.qml</file>
+        <file>DragItem.qml</file>
+        <file>DragSizeItem.qml</file>
+        <file>RotateCursor.qml</file>
+        <file>rotate.svg</file>
+        <file>DragWidget.qml</file>
+    </qresource>
+</RCC>
