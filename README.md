@@ -22,4 +22,5 @@ b站up：放假当宅宅
 
 ## 赞助
 
-[【链接】觉得分享还不错，可到b站工坊支持一波吗](https://gf.bilibili.com/item/detail/1106588078?noTitleBar=1&from=mall-up_itemDetail&msource=comments_15480180&track_id=na_15480180_BV1pWameyELy_D)
+[【链接】觉得分享还不错，可到b站工房支持一波吗](https://gf.bilibili.com/item/detail/1106588078?noTitleBar=1&from=mall-up_itemDetail&msource=comments_15480180&track_id=na_15480180_BV1pWameyELy_D)
+![输入图片说明](%E5%B7%A5%E6%88%BF%E4%BA%8C%E7%BB%B4%E7%A0%81.jpg)
