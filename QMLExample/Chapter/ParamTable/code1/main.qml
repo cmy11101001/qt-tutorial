@@ -9,21 +9,47 @@ Window {
     visible: true
     title: qsTr("Param Table")
 
+    // 演示
+    Component.onCompleted: {
+        paramTable.header = ["group", "idx", "param", "type", "value"]
+        appendParam({"group": "B", "idx": 1, "param": "y1", "type": "int", "value": 23})
+        appendParams([{"group": "C", "idx": 1, "param": "y1", "type": "int", "value": 23},
+                     {"group": "C", "idx": 2, "param": "y1", "type": "int", "value": 23}])
+        clearParams()
+        appendParams([{"group": "C", "idx": 1, "param": "y1", "type": "int", "value": 23},
+                     {"group": "C", "idx": 2, "param": "y1", "type": "int", "value": 23},
+                     {"group": "D", "idx": 1, "param": "y1", "type": "int", "value": 23},
+                     {"group": "D", "idx": 2, "param": "y1", "type": "int", "value": 23},
+                     {"group": "D", "idx": 3, "param": "y1", "type": "int", "value": 23},
+                     {"group": "D", "idx": 4, "param": "y1", "type": "int", "value": 23}])
+    }
+
     id: paramTable
     // 参数表头
-    property var header: ["group", "idx", "param", "type", "value"]
+    property var header: []
     // 参数表
-    property var params: [
-        {"group": "A", "idx": 1, "param": "x1", "type": "float", "value": 32.11},
-        {"group": "A", "idx": 2, "param": "x2", "type": "float", "value": 32.11},
-        {"group": "A", "idx": 3, "param": "x3", "type": "float", "value": 32.11},
-        {"group": "A", "idx": 4, "param": "x4", "type": "float", "value": 32.11},
-        {"group": "A", "idx": 5, "param": "x5", "type": "float", "value": 32.11},
-        {"group": "A", "idx": 6, "param": "x6", "type": "float", "value": 32.11},
-        {"group": "A", "idx": 7, "param": "x7", "type": "float", "value": 32.11},
-        {"group": "A", "idx": 8, "param": "x8", "type": "float", "value": 32.11},
-        {"group": "A", "idx": 9, "param": "y1", "type": "int", "value": 23}
-    ]
+    property var params: []
+
+    signal valueChanged(var row, var column, var data)
+
+    // 单个添加参数
+    function appendParam(param) {
+        paramTable.params.push(param)
+        tableModel.params = paramTable.params
+    }
+    // 批量添加参数
+    function appendParams(params) {
+        for (let i=0; i<params.length; i++) {
+            paramTable.params.push(params[i])
+        }
+        tableModel.params = paramTable.params
+    }
+    // 清除所有参数
+    function clearParams() {
+        paramTable.params = []
+        tableModel.params = paramTable.params
+    }
+
     // 列表头
     property int colHeaderWidth: 30
     // 行表头
@@ -80,7 +106,7 @@ Window {
                     id: item
                     width: paramTable.colWidths[index] + tableView.columnSpacing
                     height: rowHeader.height
-                    color: "purple"
+                    color: "green"
                     clip: true
 
                     Text {
@@ -133,7 +159,7 @@ Window {
             Rectangle {
                 width: paramTable.colHeaderWidth
                 height: tableView.rowHeightProvider(index)
-                color: "green"
+                color: "gray"
                 Text {
                     anchors.centerIn: parent
                     text: tableModel.headerData(index, Qt.Vertical)
@@ -173,22 +199,32 @@ Window {
             id: tableModel
             header: paramTable.header
             params: paramTable.params
+            onDataChanged: (topLeft, bottomRight, role)=>{
+                for (var row = topLeft.row; row <= bottomRight.row; ++row) {
+                    for (var column = topLeft.column; column <= bottomRight.column; ++column) {
+                        var index = tableModel.index(row, column);
+                        var data = tableModel.data(index);
+//                        console.log(`数据修改在第${row + 1}行第${column + 1}列，修改后的值为: ${data}`);
+                        paramTable.valueChanged(row, column, data)
+                    }
+                }
+            }
         }
 
         // 参数表单元格
         delegate: Rectangle{
-            color: (model.row%2)? "orange": Qt.darker("orange")
+            color: (model.row%2)? "red": Qt.darker("red")
             implicitHeight: 50
             implicitWidth: model.column < 4? 100: 150
             clip: true
-            TextInput{
+            TextField {
                 anchors.fill: parent
                 verticalAlignment: Text.AlignVCenter
                 horizontalAlignment: Text.AlignHCenter
                 selectByMouse: true
                 selectedTextColor: "black"
                 selectionColor: "white"
-                visible: model < 4? false: true
+                visible: model.column < 4? false: true
                 text: value
                 focus: true
                 onEditingFinished: {
@@ -199,7 +235,7 @@ Window {
                     bold: true
                 }
             }
-            Text {
+            TextInput {
                 anchors.fill: parent
                 verticalAlignment: Text.AlignVCenter
                 horizontalAlignment: Text.AlignHCenter
@@ -209,6 +245,7 @@ Window {
                     pointSize: 20
                     bold: true
                 }
+                readOnly: true
             }
         }
     }
