@@ -1,6 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Window 2.15
 import QtQuick.Controls 1.4
+import QtQuick.Controls.Styles 1.4
 import QtQml.Models 2.12
 import CmyTreeModel 1.0
 
@@ -22,6 +23,40 @@ Window {
         alternatingRowColors: true
         // 背景是否显示
         backgroundVisible: false
+        // 样式
+        style: TreeViewStyle {
+            property int iconSize: 20
+            // branch缩进额度
+            indentation: iconSize
+            branchDelegate: Item {
+                width: iconSize
+                height: iconSize
+                Canvas {
+                    id: canvas
+                    anchors.fill: parent
+                    onPaint: {
+                        draw()
+                    }
+                    function draw() {
+                        var ctx = getContext("2d")
+                        ctx.clearRect(0 , 0, width, height)
+                        ctx.save();
+                        ctx.lineWidth = 2
+                        if (styleData.isExpanded) {
+                            ctx.translate(width, 0)
+                            ctx.rotate(Math.PI / 2)
+                        }
+                        ctx.beginPath()
+                        ctx.moveTo(iconSize * 0.4, iconSize * 0.3)
+                        ctx.lineTo(iconSize * 0.6, iconSize * 0.5)
+                        ctx.lineTo(iconSize * 0.4, iconSize * 0.7)
+                        ctx.stroke()
+                        ctx.restore();
+                        requestAnimationFrame(draw);
+                    }
+                }
+            }
+        }
         // 自定义模型数据
         CmyTreeModel {
             id: cmyTreeModel
