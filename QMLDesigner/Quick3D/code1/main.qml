@@ -1,6 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Window 2.15
 import QtQuick3D 1.15
+import QtQuick3D.Helpers 1.15
 
 Window {
     width: 640
@@ -21,20 +22,28 @@ Window {
             clearColor: "black"
         }
 
+        // 网格
+        AxisHelper {
+            enableAxisLines: true
+            enableXYGrid: true
+            enableXZGrid: false
+            enableYZGrid: false
+        }
+
         // 摄像机
         PerspectiveCamera {
             // 相机在3D场景上的位置，等于 position.x position.y position.z
             x: 0
             y: 0
-            z: 600
+            z: 3000
             // 相机旋转角度（以x、y、z轴为中心旋转）
             eulerRotation.x: 0
             eulerRotation.y: 0
-            eulerRotation.z: 0
+            eulerRotation.z: 45
             // 相机最近可视距离
             clipNear : 0
             // 相机最远可视距离
-            clipFar : 1200
+            clipFar : 3000
             // 相机可视角度
             fieldOfView : 30
             fieldOfViewOrientation: Camera.Horizontal
