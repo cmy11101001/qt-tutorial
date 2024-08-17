@@ -7,7 +7,7 @@ Window {
     width: 640
     height: 480
     visible: true
-    title: qsTr("Hello World")
+    title: qsTr("quick3D")
     View3D {
         id: view3D
         anchors.fill: parent
@@ -26,27 +26,31 @@ Window {
         AxisHelper {
             enableAxisLines: true
             enableXYGrid: true
-            enableXZGrid: false
-            enableYZGrid: false
+            enableXZGrid: true
+            enableYZGrid: true
         }
 
         // 摄像机
-        PerspectiveCamera {
-            // 相机在3D场景上的位置，等于 position.x position.y position.z
-            x: 0
-            y: 0
-            z: 3000
-            // 相机旋转角度（以x、y、z轴为中心旋转）
-            eulerRotation.x: 0
-            eulerRotation.y: 0
-            eulerRotation.z: 45
-            // 相机最近可视距离
-            clipNear : 0
-            // 相机最远可视距离
-            clipFar : 3000
-            // 相机可视角度
-            fieldOfView : 30
-            fieldOfViewOrientation: Camera.Horizontal
+        Node {
+            id: cameraNode
+            PerspectiveCamera {
+                id: camera
+                // 相机在3D场景上的位置，等于 position.x position.y position.z
+                x: 0
+                y: 0
+                z: 1500
+                // 相机旋转角度（以x、y、z轴为中心旋转）
+                eulerRotation.x: 0
+                eulerRotation.y: 0
+                eulerRotation.z: 0
+                // 相机最近可视距离
+                clipNear : 0
+                // 相机最远可视距离
+                clipFar : 3000
+                // 相机可视角度
+                fieldOfView : 30
+                fieldOfViewOrientation: Camera.Horizontal
+            }
         }
 
         // 光源
@@ -69,10 +73,10 @@ Window {
             y: 0
             z: 0
             // 组件旋转的支点
-            pivot: Qt.vector3d(50, 0, 0)
+//            pivot: Qt.vector3d(50, 0, 0)
             //组件旋转
-            eulerRotation.x: 45
-            eulerRotation.y: 45
+            eulerRotation.x: 0
+            eulerRotation.y: 0
             // 缩放
             scale.x: 1
             scale.y: 1
@@ -125,6 +129,8 @@ Window {
         // 获取鼠标点击处的Model
         MouseArea {
             anchors.fill: parent
+            property int cx: 0
+            property int cy: 0
             onClicked: {
                 // 获取(x, y)鼠标点击处的PickResult
                 var result = view3D.pick(mouse.x, mouse.y);
@@ -133,6 +139,26 @@ Window {
                     var pickedModel = result.objectHit;
                     console.log(pickedModel)
                 }
+            }
+            onPressed: {
+                cx = mouse.x
+                cy = mouse.y
+            }
+            onPositionChanged: {
+                var intervalX = mouse.x-cx
+                var intervalY = mouse.y-cy
+//                cameraNode.eulerRotation.y = intervalX+cameraNode.eulerRotation.y
+                cameraNode.eulerRotation.y = cameraNode.eulerRotation.y-intervalX
+                cameraNode.eulerRotation.x = cameraNode.eulerRotation.x-intervalY
+                cx = mouse.x
+                cy = mouse.y
+
+            }
+            onWheel: {
+                if(wheel.angleDelta.y>0)
+                    camera.z = camera.z+50
+                else
+                    camera.z = camera.z-50
             }
         }
     }
