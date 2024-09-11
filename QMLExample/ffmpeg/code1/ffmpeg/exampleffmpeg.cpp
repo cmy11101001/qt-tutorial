@@ -92,7 +92,7 @@ static void _encode_audio(AVCodecContext *ctx, AVFrame *frame, AVPacket *pkt,
     }
 }
 
-/** 生成一段音频 */
+/** 编码：生成一段音频 */
 void ExampleFFMPEG::encode_audio(const char *filename)
 {
     const AVCodec *codec;
@@ -240,7 +240,7 @@ static void _encode_video(AVCodecContext *enc_ctx, AVFrame *frame, AVPacket *pkt
     }
 }
 
-/** 生成1秒的视频 */
+/** 编码：生成1秒的视频 */
 void ExampleFFMPEG::encode_video(const char *filename, const char *codec_name)
 {
     const AVCodec *codec;
@@ -875,7 +875,7 @@ static void close_stream(AVFormatContext *oc, OutputStream *ost)
 /**************************************************************/
 /* 媒体文件输出 */
 
-/** 生成一个音视频文件 */
+/** 编码：生成一个音视频文件 */
 void ExampleFFMPEG::mux(const char *filename)
 {
     OutputStream video_st = { 0 }, audio_st = { 0 };
@@ -1036,7 +1036,7 @@ static void _decode_audio(AVCodecContext *dec_ctx, AVPacket *pkt, AVFrame *frame
     }
 }
 
-/** 解码一段音频输出原始PCM数据 */
+/** 解码：一段音频输出原始PCM数据 */
 void ExampleFFMPEG::decode_audio(const char *filename, const char *outfilename)
 {
     const AVCodec *codec;
@@ -1174,3 +1174,464 @@ end:
     av_frame_free(&decoded_frame);
     av_packet_free(&pkt);
 }
+
+//! --------------------- decode_video ---------------------
+#define INBUF_SIZE 4096
+/** 保存PGM图像的函数 */
+static void pgm_save(unsigned char *buf, int wrap, int xsize, int ysize,
+                     char *filename)
+{
+    FILE *f;
+    int i;
+
+    f = fopen(filename,"wb");
+    fprintf(f, "P5\n%d %d\n%d\n", xsize, ysize, 255);
+    for (i = 0; i < ysize; i++)
+        fwrite(buf + i * wrap, 1, xsize, f);
+    fclose(f);
+}
+
+/** 解码视频帧 */
+static void _decode_video(AVCodecContext *dec_ctx, AVFrame *frame, AVPacket *pkt,
+                   const char *filename)
+{
+    char buf[1024];
+    int ret;
+
+    ret = avcodec_send_packet(dec_ctx, pkt);
+    if (ret < 0) {
+        fprintf(stderr, "在发送一个数据包进行解码时发生错误\n");
+        exit(1);
+    }
+
+    while (ret >= 0) {
+        ret = avcodec_receive_frame(dec_ctx, frame);
+        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
+            return;
+        else if (ret < 0) {
+            fprintf(stderr, "在解码过程中出现了错误\n");
+            exit(1);
+        }
+
+        qDebug("保存帧 %3lld\n", dec_ctx->frame_num);
+        fflush(stdout);
+
+        /* 图片由解码器分配，无需释放它 */
+        snprintf(buf, sizeof(buf), "%s-%lld", filename, dec_ctx->frame_num);
+        pgm_save(frame->data[0], frame->linesize[0],
+                 frame->width, frame->height, buf);
+    }
+}
+
+/** 解码：一段视频输出所有帧图片 */
+void ExampleFFMPEG::decode_video(const char *filename, const char *outfilename)
+{
+    const AVCodec *codec;
+    AVCodecParserContext *parser;
+    AVCodecContext *c= NULL;
+    FILE *f;
+    AVFrame *frame;
+    uint8_t inbuf[INBUF_SIZE + AV_INPUT_BUFFER_PADDING_SIZE];
+    uint8_t *data;
+    size_t   data_size;
+    int ret;
+    int eof;
+    AVPacket *pkt;
+
+    pkt = av_packet_alloc();
+    if (!pkt)
+        exit(1);
+
+    /* 将缓冲区末尾设置为0（这确保了对于损坏的MPEG流不会发生越界读取） */
+    memset(inbuf + INBUF_SIZE, 0, AV_INPUT_BUFFER_PADDING_SIZE);
+
+    /* 找到MPEG-1视频解码器 */
+    codec = avcodec_find_decoder(AV_CODEC_ID_H264); // AV_CODEC_ID_MPEG1VIDEO
+    if (!codec) {
+        fprintf(stderr, "编解码器未找到\n");
+        exit(1);
+    }
+
+    parser = av_parser_init(codec->id);
+    if (!parser) {
+        fprintf(stderr, "解析器未找到\n");
+        exit(1);
+    }
+
+    c = avcodec_alloc_context3(codec);
+    if (!c) {
+        fprintf(stderr, "无法分配视频编解码器上下文\n");
+        exit(1);
+    }
+
+    /*
+     *  1. 编解码器：msmpeg4和mpeg4。
+     *  2. 必须初始化的参数：宽度和高度。
+     *  3. 原因：这些信息在比特流中不可用 */
+
+    /* 打开它 */
+    if (avcodec_open2(c, codec, NULL) < 0) {
+        fprintf(stderr, "打不开编解码器\n");
+        exit(1);
+    }
+
+    f = fopen(filename, "rb");
+    if (!f) {
+        fprintf(stderr, "打不开 %s\n", filename);
+        exit(1);
+    }
+
+    frame = av_frame_alloc();
+    if (!frame) {
+        fprintf(stderr, "无法分配视频帧\n");
+        exit(1);
+    }
+
+    do {
+        /* 从输入文件中读取原始数据 */
+        data_size = fread(inbuf, 1, INBUF_SIZE, f);
+        if (ferror(f))
+            break;
+        eof = !data_size;
+
+        /* 使用解析器将数据分割成帧 */
+        data = inbuf;
+        while (data_size > 0 || eof) {
+            ret = av_parser_parse2(parser, c, &pkt->data, &pkt->size,
+                                   data, data_size, AV_NOPTS_VALUE, AV_NOPTS_VALUE, 0);
+            if (ret < 0) {
+                fprintf(stderr, "在解析过程中出现了错误\n");
+                exit(1);
+            }
+            data      += ret;
+            data_size -= ret;
+
+            if (pkt->size)
+                _decode_video(c, frame, pkt, outfilename);
+            else if (eof)
+                break;
+        }
+    } while (!eof);
+
+    /* 刷新编码器 */
+    _decode_video(c, frame, NULL, outfilename);
+
+    fclose(f);
+
+    av_parser_close(parser);
+    avcodec_free_context(&c);
+    av_frame_free(&frame);
+    av_packet_free(&pkt);
+}
+
+//! --------------------- demux_decode ---------------------
+// 定义全局变量
+static AVFormatContext *fmt_ctx = NULL;
+static AVCodecContext *video_dec_ctx = NULL, *audio_dec_ctx;
+static int width, height;
+static enum AVPixelFormat pix_fmt;
+static AVStream *video_stream = NULL, *audio_stream = NULL;
+static FILE *video_dst_file = NULL;
+static FILE *audio_dst_file = NULL;
+
+// 定义视频帧缓冲区
+static uint8_t *video_dst_data[4] = {NULL};
+static int      video_dst_linesize[4];
+static int video_dst_bufsize;
+
+// 定义视频和音频流索引
+static int video_stream_idx = -1, audio_stream_idx = -1;
+static AVFrame *frame = NULL;
+static AVPacket *pkt = NULL;
+static int video_frame_count = 0;
+static int audio_frame_count = 0;
+
+/** 输出视频帧 */
+static int output_video_frame(AVFrame *frame)
+{
+    // 检查视频帧的宽、高和像素格式是否发生变化
+    if (frame->width != width || frame->height != height ||
+        frame->format != pix_fmt) {
+        /* 为了处理这一变化，可以再次调用 av_image_alloc 并将后续的帧解码到另一个原始视频文件中 */
+        fprintf(stderr, "错误：在原始视频文件中，宽度、高度和像素格式必须保持不变 "
+                "但输入视频的宽度、高度或像素格式发生了改变："
+                "旧的参数：宽度 = %d, 高度 = %d, 格式 = %s"
+                "新的参数：宽度 = %d, 高度 = %d, 格式 = %s",
+                width, height, av_get_pix_fmt_name(pix_fmt),
+                frame->width, frame->height,
+                av_get_pix_fmt_name((AVPixelFormat)frame->format));
+        return -1;
+    }
+
+    qDebug("视频帧 n:%d\n",
+           video_frame_count++);
+
+    /* 将解码后的帧复制到目标缓冲区:
+     * 这是必需的，因为rawvideo期待非对齐的数据 */
+    av_image_copy2(video_dst_data, video_dst_linesize,
+                   frame->data, frame->linesize,
+                   pix_fmt, width, height);
+
+    /* 写入原始视频文件 */
+    fwrite(video_dst_data[0], 1, video_dst_bufsize, video_dst_file);
+    return 0;
+}
+
+/** 输出音频帧 */
+static int output_audio_frame(AVFrame *frame)
+{
+    size_t unpadded_linesize = frame->nb_samples * av_get_bytes_per_sample((AVSampleFormat)frame->format);
+    qDebug("audio_frame n:%d nb_samples:%d\n", audio_frame_count++, frame->nb_samples);
+
+    /* 写入第一音频平面的原始音频数据样本
+     * 这在打包格式（例如 AV_SAMPLE_FMT_S16）下运行良好
+     * 然而，大多数音频解码器输出分立音频，即为每个声道使用单独的音频样本平面（例如 AV_SAMPLE_FMT_S16P）
+     * 换句话说，在这些情况下，这段代码只会写入第一个音频声道
+     * 你应该使用 libswresample 或 libavfilter 来将帧转换为打包数据
+     * 关键点：
+     * 1. 对于打包格式（例如 AV_SAMPLE_FMT_S16），直接写入第一平面的音频数据是可行的
+     * 2. 大多数音频解码器输出的是分立音频（每个声道有独立的平面）
+     * 3. 该代码只处理了第一个音频声道的数据
+     * 4. 推荐使用 libswresample 或 libavfilter 库进行数据格式转换
+     ***/
+    fwrite(frame->extended_data[0], 1, unpadded_linesize, audio_dst_file);
+
+    return 0;
+}
+
+/** 解码数据包 */
+static int decode_packet(AVCodecContext *dec, const AVPacket *pkt)
+{
+    int ret = 0;
+
+    // 提交数据包到解码器
+    ret = avcodec_send_packet(dec, pkt);
+    if (ret < 0) {
+        fprintf(stderr, "提交用于解码的数据包时出现错误 (%d)\n", ret);
+        return ret;
+    }
+
+    // 从解码器获取所有可用的帧
+    while (ret >= 0) {
+        ret = avcodec_receive_frame(dec, frame);
+        if (ret < 0) {
+            // 这两条返回值是特殊的，意味着没有输出帧可用
+            // 但在解码过程中没有发生错误
+            if (ret == AVERROR_EOF || ret == AVERROR(EAGAIN))
+                return 0;
+
+            fprintf(stderr, "在解码过程中出现了错误 (%d)\n", ret);
+            return ret;
+        }
+
+        // 将帧数据写入输出文件
+        if (dec->codec->type == AVMEDIA_TYPE_VIDEO)
+            ret = output_video_frame(frame);
+        else
+            ret = output_audio_frame(frame);
+
+        av_frame_unref(frame);
+    }
+
+    return ret;
+}
+
+/** 打开解码器上下文 */
+static int open_codec_context(const char *src_filename, int *stream_idx,
+                              AVCodecContext **dec_ctx, AVFormatContext *fmt_ctx, enum AVMediaType type)
+{
+    int ret, stream_index;
+    AVStream *st;
+    const AVCodec *dec = NULL;
+
+    // 在输入文件中查找流
+    ret = av_find_best_stream(fmt_ctx, type, -1, -1, NULL, 0);
+    if (ret < 0) {
+        fprintf(stderr, "找不到 %s 流, 在输入文件 '%s'中\n",
+                av_get_media_type_string(type), src_filename);
+        return ret;
+    } else {
+        stream_index = ret;
+        st = fmt_ctx->streams[stream_index];
+
+        /* 查找流的解码器 */
+        dec = avcodec_find_decoder(st->codecpar->codec_id);
+        if (!dec) {
+            fprintf(stderr, "无法找到 %s 编解码器\n",
+                    av_get_media_type_string(type));
+            return AVERROR(EINVAL);
+        }
+
+        /* 为解码器分配编解码上下文 */
+        *dec_ctx = avcodec_alloc_context3(dec);
+        if (!*dec_ctx) {
+            fprintf(stderr, "未能分配 %s 编解码器上下文\n",
+                    av_get_media_type_string(type));
+            return AVERROR(ENOMEM);
+        }
+
+        /* 将输入流的编解码参数复制到输出编解码上下文 */
+        if ((ret = avcodec_parameters_to_context(*dec_ctx, st->codecpar)) < 0) {
+            fprintf(stderr, "未能将 %s 编解码器参数复制到解码器上下文中\n",
+                    av_get_media_type_string(type));
+            return ret;
+        }
+
+        /* 初始化解码器 */
+        if ((ret = avcodec_open2(*dec_ctx, dec, NULL)) < 0) {
+            fprintf(stderr, "无法打开 %s 编解码器\n",
+                    av_get_media_type_string(type));
+            return ret;
+        }
+        *stream_idx = stream_index;
+    }
+
+    return 0;
+}
+
+/** 解码：一段音视频输出原始音频文件跟原始视频文件 */
+void ExampleFFMPEG::demux_decode(const char *src_filename, const char *video_dst_filename, const char *audio_dst_filename)
+{
+    int ret = 0;
+
+    /* 打开输入文件，并分配格式上下文 */
+    if (avformat_open_input(&fmt_ctx, src_filename, NULL, NULL) < 0) {
+        fprintf(stderr, "无法打开源文件 %s\n", src_filename);
+        exit(1);
+    }
+
+    /* 检索流信息 */
+    if (avformat_find_stream_info(fmt_ctx, NULL) < 0) {
+        fprintf(stderr, "无法找到流信息\n");
+        exit(1);
+    }
+
+    // 打开视频解码器
+    if (open_codec_context(src_filename, &video_stream_idx, &video_dec_ctx, fmt_ctx, AVMEDIA_TYPE_VIDEO) >= 0) {
+        video_stream = fmt_ctx->streams[video_stream_idx];
+
+        video_dst_file = fopen(video_dst_filename, "wb");
+        if (!video_dst_file) {
+            fprintf(stderr, "无法打开目标文件 %s\n", video_dst_filename);
+            ret = 1;
+            goto end;
+        }
+
+        /* 分配一个图像存储空间，解码后的图像将被放置于此 */
+        width = video_dec_ctx->width;
+        height = video_dec_ctx->height;
+        pix_fmt = video_dec_ctx->pix_fmt;
+        ret = av_image_alloc(video_dst_data, video_dst_linesize,
+                             width, height, pix_fmt, 1);
+        if (ret < 0) {
+            fprintf(stderr, "无法分配原始视频缓冲区\n");
+            goto end;
+        }
+        video_dst_bufsize = ret;
+    }
+
+    // 打开音频解码器
+    if (open_codec_context(src_filename, &audio_stream_idx, &audio_dec_ctx, fmt_ctx, AVMEDIA_TYPE_AUDIO) >= 0) {
+        audio_stream = fmt_ctx->streams[audio_stream_idx];
+        audio_dst_file = fopen(audio_dst_filename, "wb");
+        if (!audio_dst_file) {
+            fprintf(stderr, "无法打开目标文件 %s\n", audio_dst_filename);
+            ret = 1;
+            goto end;
+        }
+    }
+
+    /* 将输入信息输出到标准错误流 */
+    av_dump_format(fmt_ctx, 0, src_filename, 0);
+
+    // 检查是否有视频或音频流
+    if (!audio_stream && !video_stream) {
+        fprintf(stderr, "在输入中未找到音频或视频流，正在中止操作\n");
+        ret = 1;
+        goto end;
+    }
+
+    frame = av_frame_alloc();
+    if (!frame) {
+        fprintf(stderr, "无法分配帧\n");
+        ret = AVERROR(ENOMEM);
+        goto end;
+    }
+
+    pkt = av_packet_alloc();
+    if (!pkt) {
+        fprintf(stderr, "无法分配数据包\n");
+        ret = AVERROR(ENOMEM);
+        goto end;
+    }
+
+    if (video_stream)
+        qDebug("从文件 '%s' 中解复用视频到 '%s'\n", src_filename, video_dst_filename);
+    if (audio_stream)
+        qDebug("从文件 '%s' 中解复用音频到 '%s'\n", src_filename, audio_dst_filename);
+
+    /* 从文件中读取帧数据 */
+    while (av_read_frame(fmt_ctx, pkt) >= 0) {
+        // 检查数据包是否属于我们感兴趣的流，否则跳过
+        if (pkt->stream_index == video_stream_idx)
+            ret = decode_packet(video_dec_ctx, pkt);
+        else if (pkt->stream_index == audio_stream_idx)
+            ret = decode_packet(audio_dec_ctx, pkt);
+        av_packet_unref(pkt);
+        if (ret < 0)
+            break;
+    }
+
+    /* 刷新编码器 */
+    if (video_dec_ctx)
+        decode_packet(video_dec_ctx, NULL);
+    if (audio_dec_ctx)
+        decode_packet(audio_dec_ctx, NULL);
+
+    qDebug("解复用成功\n");
+
+    if (video_stream) {
+        qDebug("使用命令播放输出视频文件:\n"
+               "ffplay -f rawvideo -pix_fmt %s -video_size %dx%d %s\n",
+               av_get_pix_fmt_name(pix_fmt), width, height,
+               video_dst_filename);
+    }
+
+    if (audio_stream) {
+        enum AVSampleFormat sfmt = audio_dec_ctx->sample_fmt;
+        int n_channels = audio_dec_ctx->ch_layout.nb_channels;
+        const char *fmt;
+
+        // 检查采样格式是否为平面格式
+        if (av_sample_fmt_is_planar(sfmt)) {
+            const char *packed = av_get_sample_fmt_name(sfmt);
+            qDebug("警告：解码器产生的样本格式是平面的 "
+                   "(%s). 这个示例将只输出第一个声道\n",
+                   packed ? packed : "?");
+            sfmt = av_get_packed_sample_fmt(sfmt);
+            n_channels = 1;
+        }
+
+        // 获取格式字符串
+        if ((ret = get_format_from_sample_fmt(&fmt, sfmt)) < 0)
+            goto end;
+
+        qDebug("使用命令来播放输出的音频文件:\n"
+               "ffplay -f %s -ac %d -ar %d %s\n",
+               fmt, n_channels, audio_dec_ctx->sample_rate,
+               audio_dst_filename);
+    }
+
+end:
+    avcodec_free_context(&video_dec_ctx);
+    avcodec_free_context(&audio_dec_ctx);
+    avformat_close_input(&fmt_ctx);
+    if (video_dst_file)
+        fclose(video_dst_file);
+    if (audio_dst_file)
+        fclose(audio_dst_file);
+    av_packet_free(&pkt);
+    av_frame_free(&frame);
+    av_free(video_dst_data[0]);
+}
+
