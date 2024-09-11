@@ -1494,6 +1494,8 @@ void ExampleFFMPEG::demux_decode(const char *src_filename, const char *video_dst
 {
     int ret = 0;
 
+    avformat_network_init();
+
     /* 打开输入文件，并分配格式上下文 */
     if (avformat_open_input(&fmt_ctx, src_filename, NULL, NULL) < 0) {
         fprintf(stderr, "无法打开源文件 %s\n", src_filename);
@@ -1634,4 +1636,3 @@ end:
     av_frame_free(&frame);
     av_free(video_dst_data[0]);
 }
-

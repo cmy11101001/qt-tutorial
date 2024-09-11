@@ -32,9 +32,12 @@ public:
 
     /** 解码：一段音视频输出原始音频文件跟原始视频文件
      *  demux_decode("./../mux.mp4", "./../demux_decode.raw", "./../demux_decode.pcm")
+     *  也可以解码rtsp等网络流媒体
+     *  demux_decode("rtsp://127.0.0.1:8554/1", "./../demux_decode.raw", "./../demux_decode.pcm")
      *  .\ffplay.exe -f rawvideo -video_size 352x288 ..\demux_decode.raw
      *  .\ffplay.exe -ar 44100 -f s16le -i ..\demux_decode.pcm */
     void demux_decode(const char *src_filename, const char *video_dst_filename, const char *audio_dst_filename);
+
 signals:
 
 };

@@ -41,6 +41,7 @@ int main(int argc, char *argv[])
     exampleFFMPEG->decode_video("./../encode_video.mp4", "./../decode_video_frame");
     // 解码：一段音视频输出原始音频文件跟原始视频文件
     exampleFFMPEG->demux_decode("./../mux.mp4", "./../demux_decode.raw", "./../demux_decode.pcm");
+//    exampleFFMPEG->demux_decode("rtsp://127.0.0.1:8554/1", "./../demux_decode.raw", "./../demux_decode.pcm");
 
 //    UsbCamera2RTSP *usbCamera2RTSP = new UsbCamera2RTSP();
 
