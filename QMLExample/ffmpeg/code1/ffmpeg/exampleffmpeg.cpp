@@ -93,9 +93,8 @@ static void _encode_audio(AVCodecContext *ctx, AVFrame *frame, AVPacket *pkt,
 }
 
 /** 生成一段音频 */
-void ExampleFFMPEG::encode_audio()
+void ExampleFFMPEG::encode_audio(const char *filename)
 {
-    const char *filename;
     const AVCodec *codec;
     AVCodecContext *c= NULL;
     AVFrame *frame;
@@ -104,8 +103,6 @@ void ExampleFFMPEG::encode_audio()
     FILE *f;
     uint16_t *samples;
     float t, tincr;
-
-    filename = "./../encode_audio.mp2";
 
     /* 找到MP2编码器 */
     codec = avcodec_find_encoder(AV_CODEC_ID_MP2);
@@ -244,9 +241,8 @@ static void _encode_video(AVCodecContext *enc_ctx, AVFrame *frame, AVPacket *pkt
 }
 
 /** 生成1秒的视频 */
-void ExampleFFMPEG::encode_video()
+void ExampleFFMPEG::encode_video(const char *filename, const char *codec_name)
 {
-    const char *filename, *codec_name;
     const AVCodec *codec;
     AVCodecContext *c= NULL;
     int i, ret, x, y;
@@ -254,9 +250,6 @@ void ExampleFFMPEG::encode_video()
     AVFrame *frame;
     AVPacket *pkt;
     uint8_t endcode[] = { 0, 0, 1, 0xb7 };
-
-    filename = "./../encode_video.mp4";
-    codec_name = "libx264";
 
     // 查找编码器
     codec = avcodec_find_encoder_by_name(codec_name);
@@ -883,11 +876,10 @@ static void close_stream(AVFormatContext *oc, OutputStream *ost)
 /* 媒体文件输出 */
 
 /** 生成一个音视频文件 */
-void ExampleFFMPEG::mux()
+void ExampleFFMPEG::mux(const char *filename)
 {
     OutputStream video_st = { 0 }, audio_st = { 0 };
     const AVOutputFormat *fmt;
-    const char *filename;
     AVFormatContext *oc;
     const AVCodec *audio_codec, *video_codec;
     int ret;
@@ -895,9 +887,6 @@ void ExampleFFMPEG::mux()
     int encode_video = 0, encode_audio = 0;
     AVDictionary *opt = NULL;
     int i;
-
-    // 任意格式都行，会自动推断
-    filename = "./../mux.mp4";
 
     /* 分配输出媒体上下文 */
     avformat_alloc_output_context2(&oc, NULL, NULL, filename);
@@ -976,4 +965,212 @@ void ExampleFFMPEG::mux()
 
     /* 释放流 */
     avformat_free_context(oc);
+}
+
+//! --------------------- decode_audio ---------------------
+#define AUDIO_INBUF_SIZE 20480
+#define AUDIO_REFILL_THRESH 4096
+
+/** 根据采样格式获取格式字符串 */
+static int get_format_from_sample_fmt(const char **fmt,
+                                      enum AVSampleFormat sample_fmt)
+{
+    int i;
+    struct sample_fmt_entry {
+        enum AVSampleFormat sample_fmt; const char *fmt_be, *fmt_le;
+    } sample_fmt_entries[] = {
+        { AV_SAMPLE_FMT_U8,  "u8",    "u8"    },
+        { AV_SAMPLE_FMT_S16, "s16be", "s16le" },
+        { AV_SAMPLE_FMT_S32, "s32be", "s32le" },
+        { AV_SAMPLE_FMT_FLT, "f32be", "f32le" },
+        { AV_SAMPLE_FMT_DBL, "f64be", "f64le" },
+    };
+    *fmt = NULL;
+
+    for (i = 0; i < FF_ARRAY_ELEMS(sample_fmt_entries); i++) {
+        struct sample_fmt_entry *entry = &sample_fmt_entries[i];
+        if (sample_fmt == entry->sample_fmt) {
+            *fmt = AV_NE(entry->fmt_be, entry->fmt_le);
+            return 0;
+        }
+    }
+
+    fprintf(stderr,
+            "样本格式 %s 不被支持作为输出格式\n",
+            av_get_sample_fmt_name(sample_fmt));
+    return -1;
+}
+
+/** 解码音频数据，并写入文件 */
+static void _decode_audio(AVCodecContext *dec_ctx, AVPacket *pkt, AVFrame *frame,
+                   FILE *outfile)
+{
+    int i, ch;
+    int ret, data_size;
+
+    // 将压缩数据包发送到解码器
+    ret = avcodec_send_packet(dec_ctx, pkt);
+    if (ret < 0) {
+        fprintf(stderr, "将数据包提交给解码器时出现错误\n");
+        exit(1);
+    }
+
+    // 读取所有输出帧（通常可能有任意数量的帧）
+    while (ret >= 0) {
+        ret = avcodec_receive_frame(dec_ctx, frame);
+        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
+            return;
+        else if (ret < 0) {
+            fprintf(stderr, "在解码过程中出现了错误\n");
+            exit(1);
+        }
+        data_size = av_get_bytes_per_sample(dec_ctx->sample_fmt);
+        if (data_size < 0) {
+            // 这不应该发生，只是出于谨慎
+            fprintf(stderr, "未能计算数据大小\n");
+            exit(1);
+        }
+        for (i = 0; i < frame->nb_samples; i++)
+            for (ch = 0; ch < dec_ctx->ch_layout.nb_channels; ch++)
+                fwrite(frame->data[ch] + data_size*i, 1, data_size, outfile);
+    }
+}
+
+/** 解码一段音频输出原始PCM数据 */
+void ExampleFFMPEG::decode_audio(const char *filename, const char *outfilename)
+{
+    const AVCodec *codec;
+    AVCodecContext *c= NULL;
+    AVCodecParserContext *parser = NULL;
+    int len, ret;
+    FILE *f, *outfile;
+    uint8_t inbuf[AUDIO_INBUF_SIZE + AV_INPUT_BUFFER_PADDING_SIZE];
+    uint8_t *data;
+    size_t   data_size;
+    AVPacket *pkt;
+    AVFrame *decoded_frame = NULL;
+    enum AVSampleFormat sfmt;
+    int n_channels = 0;
+    const char *fmt;
+
+    // 分配AVPacket
+    pkt = av_packet_alloc();
+
+    // 查找MPEG音频解码器
+    codec = avcodec_find_decoder(AV_CODEC_ID_MP2);
+    if (!codec) {
+        fprintf(stderr, "未找到编解码器\n");
+        exit(1);
+    }
+
+    // 初始化解析器
+    parser = av_parser_init(codec->id);
+    if (!parser) {
+        fprintf(stderr, "未发现解析器\n");
+        exit(1);
+    }
+
+    // 分配AVCodecContext
+    c = avcodec_alloc_context3(codec);
+    if (!c) {
+        fprintf(stderr, "无法分配音频编解码器上下文\n");
+        exit(1);
+    }
+
+    // 打开解码器
+    if (avcodec_open2(c, codec, NULL) < 0) {
+        fprintf(stderr, "未能打开编解码器\n");
+        exit(1);
+    }
+
+    // 打开输入文件
+    f = fopen(filename, "rb");
+    if (!f) {
+        fprintf(stderr, "未能打开 %s\n", filename);
+        exit(1);
+    }
+    // 打开输出文件
+    outfile = fopen(outfilename, "wb");
+    if (!outfile) {
+        av_free(c);
+        exit(1);
+    }
+
+    // 解码直到文件结束
+    data      = inbuf;
+    data_size = fread(inbuf, 1, AUDIO_INBUF_SIZE, f);
+
+    while (data_size > 0) {
+        // 分配AVFrame
+        if (!decoded_frame) {
+            if (!(decoded_frame = av_frame_alloc())) {
+                fprintf(stderr, "无法分配音频帧\n");
+                exit(1);
+            }
+        }
+
+        // 解析数据包
+        ret = av_parser_parse2(parser, c, &pkt->data, &pkt->size,
+                               data, data_size,
+                               AV_NOPTS_VALUE, AV_NOPTS_VALUE, 0);
+        if (ret < 0) {
+            fprintf(stderr, "在解析过程中出现了错误\n");
+            exit(1);
+        }
+        data      += ret;
+        data_size -= ret;
+
+        // 解码数据包
+        if (pkt->size)
+            _decode_audio(c, pkt, decoded_frame, outfile);
+
+        // 如果数据不足，则填充数据
+        if (data_size < AUDIO_REFILL_THRESH) {
+            memmove(inbuf, data, data_size);
+            data = inbuf;
+            len = fread(data + data_size, 1,
+                        AUDIO_INBUF_SIZE - data_size, f);
+            if (len > 0)
+                data_size += len;
+        }
+    }
+
+    // 刷新解码器
+    pkt->data = NULL;
+    pkt->size = 0;
+    _decode_audio(c, pkt, decoded_frame, outfile);
+
+    // 打印输出pcm信息，因为没有pcm的元数据
+    sfmt = c->sample_fmt;
+
+    // 如果是平面格式，则转换为打包格式
+    if (av_sample_fmt_is_planar(sfmt)) {
+        const char *packed = av_get_sample_fmt_name(sfmt);
+        qDebug("警告：解码器产生的样本格式是平面的 "
+               "(%s). 本示例将仅输出第一个声道\n",
+               packed ? packed : "?");
+        sfmt = av_get_packed_sample_fmt(sfmt);
+    }
+
+    // 获取通道数
+    n_channels = c->ch_layout.nb_channels;
+    // 获取格式字符串
+    if ((ret = get_format_from_sample_fmt(&fmt, sfmt)) < 0)
+        goto end;
+
+    // 打印播放命令
+    qDebug("使用该命令来播放输出的音频文件:\n"
+           "ffplay -f %s -ac %d -ar %d %s\n",
+           fmt, n_channels, c->sample_rate,
+           outfilename);
+end:
+    // 关闭文件
+    fclose(outfile);
+    fclose(f);
+
+    // 释放资源
+    avcodec_free_context(&c);
+    av_parser_close(parser);
+    av_frame_free(&decoded_frame);
+    av_packet_free(&pkt);
 }

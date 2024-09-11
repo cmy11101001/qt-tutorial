@@ -23,13 +23,20 @@ int main(int argc, char *argv[])
     }, Qt::QueuedConnection);
     engine.load(url);
 
+    /// 查看ffmpeg版本
     qDebug() << "版本:" + QString(av_version_info());
     qDebug() << avcodec_configuration();
 
+    /// 运行ffmpeg例子
     ExampleFFMPEG *exampleFFMPEG = new ExampleFFMPEG();
-    exampleFFMPEG->encode_audio();
-    exampleFFMPEG->encode_video();
-    exampleFFMPEG->mux();
+    // 编码-输出一段音频
+    exampleFFMPEG->encode_audio("./../encode_audio.mp2");
+    // 编码-输出一段视频
+    exampleFFMPEG->encode_video("./../encode_video.mp4", "libx264");
+    // 编译-输出一段音视频
+    exampleFFMPEG->mux("./../mux.mp4");
+    // 解码-输出一段音频
+    exampleFFMPEG->decode_audio("./../encode_audio.mp2", "./../decode_audio.pcm");
 
 
 //    UsbCamera2RTSP *usbCamera2RTSP = new UsbCamera2RTSP();
