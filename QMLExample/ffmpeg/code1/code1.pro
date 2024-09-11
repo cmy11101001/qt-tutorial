@@ -5,6 +5,8 @@ QT += quick widgets
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
+        ffmpeg/exampleffmpeg.cpp \
+        ffmpeg/usbcamera2rtsp.cpp \
         main.cpp
 
 RESOURCES += qml.qrc
@@ -42,4 +44,6 @@ win32 {
 }
 
 HEADERS += \
+    ffmpeg/exampleffmpeg.h \
+    ffmpeg/usbcamera2rtsp.h \
     ffmpeginclude.h
