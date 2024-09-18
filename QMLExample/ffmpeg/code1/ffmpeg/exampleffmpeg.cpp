@@ -111,6 +111,7 @@ void ExampleFFMPEG::encode_audio(const char *filename)
         exit(1);
     }
 
+    /* 创建MP2编码器实例 */
     c = avcodec_alloc_context3(codec);
     if (!c) {
         fprintf(stderr, "无法分配音频编解码器上下文\n");
@@ -382,7 +383,7 @@ typedef struct OutputStream {
     AVStream *st;
     AVCodecContext *enc;
 
-    /* pts of the next frame that will be generated */
+    /* 将要生成的下一帧的pts（时间戳） */
     int64_t next_pts;
     int samples_count;
 
